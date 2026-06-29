@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redis 课程 · 学习看板</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    padding: 40px 20px;
+    min-height: 100vh;
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+
+  /* Header */
+  .header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 32px; flex-wrap: wrap; gap: 12px;
+  }
+  .header h1 {
+    font-size: 28px; font-weight: 700;
+    background: linear-gradient(135deg, #ff6b35, #f7c948);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .header .subtitle { font-size: 14px; color: #8b949e; margin-top: 4px; }
+
+  /* Overall Progress */
+  .overall {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin-bottom: 28px;
+    display: flex; align-items: center; gap: 32px; flex-wrap: wrap;
+  }
+  .overall .ring {
+    width: 100px; height: 100px; position: relative; flex-shrink: 0;
+  }
+  .overall .ring svg {
+    width: 100px; height: 100px; transform: rotate(-90deg);
+  }
+  .overall .ring .bg { fill: none; stroke: #21262d; stroke-width: 6; }
+  .overall .ring .fg {
+    fill: none; stroke: #f7c948; stroke-width: 6;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.6s ease;
+  }
+  .overall .ring .center {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; font-weight: 700;
+  }
+  .overall .ring .center span { font-size: 14px; font-weight: 400; color: #8b949e; margin-left: 2px; }
+  .overall .stats { display: flex; gap: 28px; flex-wrap: wrap; }
+  .overall .stat-item { text-align: center; }
+  .overall .stat-item .num { font-size: 24px; font-weight: 700; }
+  .overall .stat-item .num.pass { color: #3fb950; }
+  .overall .stat-item .num.pending { color: #f7c948; }
+  .overall .stat-item .num.total { color: #58a6ff; }
+  .overall .stat-item .label { font-size: 12px; color: #8b949e; margin-top: 4px; }
+
+  /* Chapters */
+  .chapter {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .chapter-header {
+    padding: 18px 24px;
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; user-select: none;
+    transition: background 0.15s;
+  }
+  .chapter-header:hover { background: #1c2128; }
+  .chapter-header .left { display: flex; align-items: center; gap: 12px; }
+  .chapter-header .left .icon { font-size: 20px; }
+  .chapter-header .left .name { font-size: 16px; font-weight: 600; }
+  .chapter-header .left .count { font-size: 13px; color: #8b949e; }
+  .chapter-header .chevron { color: #8b949e; transition: transform 0.2s; font-size: 14px; }
+  .chapter-header .chevron.open { transform: rotate(180deg); }
+
+  .chapter-body { padding: 0 24px 20px; }
+
+  /* Lessons list */
+  .lesson { display: none; }
+  .chapter-body.open .lesson { display: flex; }
+  .lesson {
+    align-items: center; padding: 12px 0;
+    border-bottom: 1px solid #21262d;
+    gap: 12px;
+  }
+  .lesson:last-child { border-bottom: none; }
+  .lesson .status {
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .lesson .status.done { background: #1f6f2f; color: #3fb950; }
+  .lesson .status.current { background: #3d2e00; color: #f7c948; }
+  .lesson .status.pending { background: #21262d; color: #484f58; }
+  .lesson .info { flex: 1; min-width: 0; }
+  .lesson .info .title { font-size: 14px; font-weight: 500; }
+  .lesson .info .desc { font-size: 12px; color: #8b949e; margin-top: 2px; }
+  .lesson .score {
+    font-size: 13px; font-weight: 600; flex-shrink: 0;
+    background: #21262d; padding: 4px 10px; border-radius: 6px;
+  }
+  .lesson .score.pass { color: #3fb950; }
+  .lesson .score.retake { color: #f0883e; }
+
+  /* Last updated */
+  .footer { text-align: center; margin-top: 32px; font-size: 12px; color: #484f58; }
+
+  @media (max-width: 600px) {
+    body { padding: 20px 12px; }
+    .overall { flex-direction: column; align-items: flex-start; gap: 16px; }
+    .header h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <h1>📚 Redis 课程 · 学习看板</h1>
+      <div class="subtitle">刘哥 · 10 年 Java 老兵 · 原理进阶路线</div>
+    </div>
+    <div style="font-size:13px;color:#8b949e;" id="lastUpdate">加载中...</div>
+  </div>
+
+  <!-- Overall Progress -->
+  <div class="overall" id="overall">
+    <div class="ring">
+      <svg viewBox="0 0 100 100">
+        <circle class="bg" cx="50" cy="50" r="42"/>
+        <circle class="fg" id="progressRing" cx="50" cy="50" r="42" stroke-dasharray="263.89" stroke-dashoffset="263.89"/>
+      </svg>
+      <div class="center"><span id="progressPct">0</span><span>%</span></div>
+    </div>
+    <div class="stats">
+      <div class="stat-item">
+        <div class="num pass" id="doneCount">0</div>
+        <div class="label">✅ 已通过</div>
+      </div>
+      <div class="stat-item">
+        <div class="num pending" id="currentCount">0</div>
+        <div class="label">📖 进行中</div>
+      </div>
+      <div class="stat-item">
+        <div class="num total" id="totalCount">0</div>
+        <div class="label">📋 总课数</div>
+      </div>
+      <div class="stat-item">
+        <div class="num" style="color:#8b949e;" id="pendingCount">0</div>
+        <div class="label">⏳ 未开始</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chapter list -->
+  <div id="chapters"></div>
+
+  <div class="footer">
+    每完成一课自动更新 · 速记卡见 <code style="background:#21262d;padding:2px 6px;border-radius:4px;">/root/redis-study/速记卡.md</code>
+  </div>
+
+</div>
+
+<script>
+  const data = {
+    chapters: [
+      {
+        name: '一、数据结构底层',
+        icon: '🏗️',
+        lessons: [
+          { id: 1, title: 'String 底层：SDS / embstr vs raw vs int', status: 'pending' },
+          { id: 2, title: 'Hash：ziplist → hashtable 升级条件', status: 'pending' },
+          { id: 3, title: 'ZSet：为什么用跳表？skiplist vs 平衡树', status: 'pending' },
+          { id: 4, title: 'List：linkedlist → quicklist → listpack', status: 'pending' },
+          { id: 5, title: 'Stream 设计思想 vs Kafka', status: 'pending' }
+        ]
+      },
+      {
+        name: '二、持久化',
+        icon: '💾',
+        lessons: [
+          { id: 6, title: 'RDB：fork + 写时复制（COW）原理', status: 'pending' },
+          { id: 7, title: 'AOF：三种 fsync 策略 + rewrite', status: 'pending' },
+          { id: 8, title: '混合持久化：RDB + AOF 如何协作', status: 'pending' }
+        ]
+      },
+      {
+        name: '三、内存管理',
+        icon: '🧠',
+        lessons: [
+          { id: 9, title: '过期策略：惰性删除 + 定时扫描', status: 'pending' },
+          { id: 10, title: '8 种淘汰策略：LRU vs LFU 实现', status: 'pending' },
+          { id: 11, title: '内存碎片：jemalloc / MEMORY DOCTOR', status: 'pending' }
+        ]
+      },
+      {
+        name: '四、单线程模型',
+        icon: '⚡',
+        lessons: [
+          { id: 12, title: '事件循环：epoll + 文件事件 + 时间事件', status: 'pending' },
+          { id: 13, title: '6.0 多线程 I/O：解决了什么？没解决什么？', status: 'pending' }
+        ]
+      },
+      {
+        name: '五、高可用',
+        icon: '🔁',
+        lessons: [
+          { id: 14, title: '主从复制：PSYNC2 / backlog / 无盘复制', status: 'pending' },
+          { id: 15, title: '哨兵机制：心跳 / 下线判定 / Raft 选举', status: 'pending' },
+          { id: 16, title: 'Cluster：16384 slot / resharding / gossip', status: 'pending' }
+        ]
+      },
+      {
+        name: '六、诊断与设计',
+        icon: '🔍',
+        lessons: [
+          { id: 17, title: '大 key / 热 key / 慢查询排查', status: 'pending' },
+          { id: 18, title: '缓存一致性：4 种方案对比', status: 'pending' }
+        ]
+      }
+    ]
+  };
+
+  // 初始状态：第 1 课设为 current，其余 pending
+  data.chapters[0].lessons[0].status = 'current';
+
+  function render() {
+    let done = 0, current = 0, pending = 0, total = 0;
+
+    data.chapters.forEach(ch => {
+      ch.lessons.forEach(l => {
+        total++;
+        if (l.status === 'done') done++;
+        else if (l.status === 'current') current++;
+        else pending++;
+      });
+    });
+
+    // Update stats
+    document.getElementById('doneCount').textContent = done;
+    document.getElementById('currentCount').textContent = current;
+    document.getElementById('pendingCount').textContent = pending;
+    document.getElementById('totalCount').textContent = total;
+
+    // Progress ring
+    const pct = total > 0 ? Math.round(done / total * 100) : 0;
+    document.getElementById('progressPct').textContent = pct;
+    const circumference = 263.89;
+    const offset = circumference - (pct / 100) * circumference;
+    document.getElementById('progressRing').style.strokeDashoffset = offset;
+
+    // Last update time
+    const now = new Date();
+    document.getElementById('lastUpdate').textContent =
+      '上次更新 ' + now.toLocaleString('zh-CN', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+    // Render chapters
+    const container = document.getElementById('chapters');
+    container.innerHTML = '';
+
+    data.chapters.forEach((ch, ci) => {
+      const chDiv = document.createElement('div');
+      chDiv.className = 'chapter';
+
+      const header = document.createElement('div');
+      header.className = 'chapter-header';
+      header.innerHTML = `
+        <div class="left">
+          <span class="icon">${ch.icon}</span>
+          <span class="name">${ch.name}</span>
+          <span class="count">${ch.lessons.filter(l => l.status === 'done').length}/${ch.lessons.length}</span>
+        </div>
+        <span class="chevron">▼</span>
+      `;
+
+      const body = document.createElement('div');
+      body.className = 'chapter-body open';
+
+      ch.lessons.forEach(l => {
+        const div = document.createElement('div');
+        div.className = 'lesson';
+
+        const statusIcon = document.createElement('div');
+        statusIcon.className = 'status ' + l.status;
+        statusIcon.textContent = l.status === 'done' ? '✓' : l.status === 'current' ? '●' : '○';
+
+        const info = document.createElement('div');
+        info.className = 'info';
+        info.innerHTML = `<div class="title">第 ${l.id} 课 · ${l.title}</div>`;
+
+        div.appendChild(statusIcon);
+        div.appendChild(info);
+
+        if (l.status === 'done') {
+          const score = document.createElement('div');
+          score.className = 'score pass';
+          score.textContent = '✅ 已通过';
+          div.appendChild(score);
+        } else if (l.status === 'current') {
+          const score = document.createElement('div');
+          score.className = 'score retake';
+          score.textContent = '📖 进行中';
+          div.appendChild(score);
+        }
+
+        body.appendChild(div);
+      });
+
+      header.addEventListener('click', () => {
+        body.classList.toggle('open');
+        header.querySelector('.chevron').classList.toggle('open');
+      });
+
+      chDiv.appendChild(header);
+      chDiv.appendChild(body);
+      container.appendChild(chDiv);
+    });
+  }
+
+  render();
+</script>
+
+</body>
+</html>

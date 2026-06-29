@@ -1,0 +1,12 @@
+{
+  "courses": [
+    {
+      "id": "redis",
+      "title": "Redis 进阶课程",
+      "icon": "📚",
+      "student": "刘哥",
+      "token": "redis2024",
+      "dataFile": "courses/redis/课程数据.json"
+    }
+  ]
+}
